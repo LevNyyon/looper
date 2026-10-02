@@ -1,0 +1,6 @@
+build/
+third_party/
+.DS_Store
+*.zip
+# the archived ALK2 manual is zenAud.io's copyright, kept locally only
+docs/alk2-manual/
