@@ -56,7 +56,7 @@ xattr -dr com.apple.quarantine /Applications/Looper.app
 | Space | Play or stop |
 | Return | Record or stop |
 | R | Rewind |
-| Q | Loop the selected region |
+| Q | Loop the selected region (when the loop range is switched on in Prefs) |
 | L | Lock the track (rehearse without overwriting) |
 | P | Panic |
 | Z, Shift-Z | Undo, redo |

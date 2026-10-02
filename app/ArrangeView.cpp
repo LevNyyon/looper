@@ -328,6 +328,7 @@ void ArrangeView::mouseDrag (const juce::MouseEvent& e)
 
     if (drag == Loop)
     {
+        if (! host.loopRange) return;       // the ruler only moves the playhead
         const double a = juce::jmax (0.0, juce::jmin (dragBeat0, snap (beat))), b = juce::jmax (dragBeat0, snap (beat));
         if (b > a) { host.setLoop (a, b); moved = true; repaint(); }
         return;

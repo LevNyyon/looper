@@ -195,6 +195,7 @@ bool MainComponent::keyPressed (const juce::KeyPress& k)
         case 'r': host.jump (host.loopB > host.loopA ? host.loopA : 0.0); return true;
         case 'p': host.panic(); return true;
         case 'q':       // loop the selected region, or clear the loop
+            if (! host.loopRange) return true;
             if (auto* r = region(); r != nullptr && ! (juce::approximatelyEqual (host.loopA, r->start) && juce::approximatelyEqual (host.loopB, r->start + r->length))) host.setLoop (r->start, r->start + r->length);
             else host.setLoop (0, 0);
             arrange.repaint();
@@ -329,8 +330,10 @@ struct AudioPage : juce::Component, juce::Timer
     explicit AudioPage (AudioHost& h) : host (h), selector (h.dm, 0, 256, 0, 256, true, false, false, false)
     {
         for (juce::Component* c : { (juce::Component*) &selector, (juce::Component*) &info, (juce::Component*) &offsetLabel,
-                                    (juce::Component*) &offset, (juce::Component*) &calibrate, (juce::Component*) &result })
+                                    (juce::Component*) &offset, (juce::Component*) &calibrate, (juce::Component*) &result, (juce::Component*) &hideLoop })
             addAndMakeVisible (c);
+        hideLoop.setToggleState (! host.loopRange, juce::dontSendNotification);
+        hideLoop.onClick = [this] { host.setLoopRange (! hideLoop.getToggleState()); };
         offsetLabel.setText ("Extra recording offset", juce::dontSendNotification);
         offset.setRange (-100, 100, 0.1);
         offset.setTextValueSuffix (" ms");
@@ -358,7 +361,8 @@ struct AudioPage : juce::Component, juce::Timer
     void resized() override
     {
         auto r = getLocalBounds().reduced (10);
-        auto bottom = r.removeFromBottom (120);
+        auto bottom = r.removeFromBottom (150);
+        hideLoop.setBounds (bottom.removeFromBottom (28));
         selector.setBounds (r);
         info.setBounds (bottom.removeFromTop (36));
         auto row = bottom.removeFromTop (26);
@@ -373,6 +377,7 @@ struct AudioPage : juce::Component, juce::Timer
     juce::Label info, offsetLabel, result;
     juce::Slider offset { juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
     juce::TextButton calibrate { "Measure with loopback cable" };
+    juce::ToggleButton hideLoop { "Hide the loop range (the blue bar in the ruler that repeats one section, and its Q shortcut)" };
 };
 
 struct Prefs : juce::TabbedComponent

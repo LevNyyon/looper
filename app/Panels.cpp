@@ -555,8 +555,9 @@ void Inspector::rebuild()
     if (r == nullptr)
     {
         label ({ 12, 10, W - 24, 20 }, "Right-click a track to place a record or play region. Drag on empty space to select several, shift-click to add one. Drag a selection to move it (also to another track), alt-drag to copy, edges resize, double-click names a recording.");
-        label ({ 12, 34, W - 24, 20 }, "Drag in the ruler to loop a section, click it to move the playhead, double-click to clear the loop.");
-        label ({ 12, 58, W - 24, 20 }, "Space play, Return record, R rewind, Q loop the selected region, L lock track, P panic, Z undo, Shift-Z redo, Backspace delete.");
+        label ({ 12, 34, W - 24, 20 }, host.loopRange ? "Click the ruler to move the playhead. Drag in it to loop a section, double-click to clear the loop, Q loops the selected region."
+                                                         : "Click the ruler to move the playhead.");
+        label ({ 12, 58, W - 24, 20 }, "Space play, Return record, R rewind, L lock track, P panic, Z undo, Shift-Z redo, Backspace delete.");
         label ({ 12, 82, W - 24, 20 }, "With an instrument track selected, the computer keyboard plays it: A S D F G H J K with W E T Y U for the black keys. Drum tracks use the letters shown on the pads.");
         return;
     }

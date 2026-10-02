@@ -41,6 +41,7 @@ AudioHost::AudioHost()
     o.osxLibrarySubFolder = "Application Support";
     props.setStorageParameters (o);
     latencyOffsetMs = props.getUserSettings()->getDoubleValue ("latencyOffsetMs", 0.0);
+    loopRange = props.getUserSettings()->getBoolValue ("loopRange", false);
 
     juce::addDefaultFormatsToManager (formats);
     if (auto xml = props.getUserSettings()->getXmlValue ("plugins")) known.recreateFromXml (*xml);
@@ -365,8 +366,18 @@ void AudioHost::panic()
     if (recording() && song.panic (posBeats())) { regionsChanged(); if (onChange) onChange(); }
 }
 
+void AudioHost::setLoopRange (bool available)
+{
+    loopRange = available;
+    props.getUserSettings()->setValue ("loopRange", available);
+    if (! available) setLoop (0, 0);
+    if (onChange) onChange();
+}
+
 void AudioHost::setLoop (double a, double b)
 {
+    if (! loopRange) a = b = 0;     // hidden in Prefs: the song always runs straight through
+
     loopA = a;
     loopB = b;
     engine.loopStart = (juce::int64) std::llround (a * spb());

@@ -19,6 +19,8 @@ struct AudioHost : juce::AudioIODeviceCallback, juce::ChangeListener, juce::Time
     std::atomic<int> keyTrack { -1 };       // index of the track the on-screen keys and pads play
     bool dirty = false;
     double loopA = 0, loopB = 0;            // global loop in beats, on when loopB > loopA
+    bool loopRange = false;                 // Prefs: the loop range in the ruler is available at all
+    void setLoopRange (bool available);
     std::function<void()> onChange;         // transport state or the whole song changed
 
     void openDevices (bool microphoneAllowed);
