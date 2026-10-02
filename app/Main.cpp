@@ -257,13 +257,7 @@ void MainComponent::addTrackMenu (juce::Component* target)
     {
         if (res == 0 || (int) host.song.tracks.size() >= alk::Engine::kMaxTracks) return;
         const Track::Type kinds[] = { Track::Audio, Track::Instrument, Track::Command, Track::Control, Track::Talkback, Track::Instrument, Track::Marker };
-        auto& t = host.song.addTrack (kinds[res - 1]);
-        if (res == 6) { t.drums = true; t.name = "Drums"; }
-        if (t.type == Track::Talkback) t.power = false;         // starts muted: an open mic into monitors feeds back
-        t.audition = t.type == Track::Instrument;      // an instrument you cannot hear while setting up is no use
-        if (t.type == Track::Instrument)
-            for (auto& d : host.known.getTypes()) if (d.name == "DLSMusicDevice") t.instrument.desc = d;   // sound right away
-        selTrack = t.id;
+        selTrack = host.newTrack (kinds[res - 1], res == 6).id;
         host.structureChanged();
     });
 }

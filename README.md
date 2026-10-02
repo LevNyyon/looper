@@ -84,6 +84,14 @@ Drag on empty space to select several regions, drag a selection to move it, Alt-
 
 Songs are folders named `Something.looper` in `~/Music/Looper/` and they autosave.
 
+## Tell it what to build
+
+The running app takes commands from outside, so an AI coding assistant can turn a sentence into an arrangement:
+
+> "Start with a 2 bar kick and snare recording, then layer hi-hats on it, then add bass, and when all three are layered let them run for 4 bars together."
+
+Open this repo in [Claude Code](https://claude.com/claude-code) with Looper running and say it. The tracks and regions appear on the timeline. The command format is small and documented in [docs/CONTROL.md](docs/CONTROL.md), so any script can use it too.
+
 ## Build from source
 
 You need the Xcode Command Line Tools, CMake and Ninja. Full Xcode is not required.
@@ -107,6 +115,7 @@ C++17 and [JUCE](https://juce.com) 8, nothing else.
 |---|---|
 | `engine/` | The looper core: a script of record and play regions driving loop buffers. Standard library only, no devices, no UI. `selfcheck.cpp` is its one check. |
 | `app/` | The JUCE app: song model and file format, audio and MIDI host, plugin chains, timeline UI, automation. |
+| `docs/CONTROL.md` | How to drive the running app from outside: the command inbox and its ops. |
 | `PLAN.md` | The working plan: scope, decisions, every deliberate shortcut and what was and was not verified. |
 
 The core is small because everything is known in advance. A record region has a fixed length, so its buffer exists before you play a note, and a play region is just a read position: `sliceStart + ((playhead - regionStart) mod sliceLength)`.

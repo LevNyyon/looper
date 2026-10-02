@@ -250,6 +250,7 @@ void AudioHost::regionsChanged()
 {
     engine.setArrangement (song.compile (sr, uiMode == alk::Engine::Recording));
     paramsChanged();    // tempo moves the quantize grid and the metronome
+    stateStale = true;
 }
 
 void AudioHost::structureChanged()
@@ -388,6 +389,7 @@ void AudioHost::timerCallback()
 {
     engine.collectGarbage();
     if (uiMode != alk::Engine::Stopped && ! rolling()) finishStop();    // the engine stopped itself at the song end
+    if (registered && ++controlTicks >= 8) { controlTicks = 0; pollControl(); }     // about 4 times a second
 
     // crash protection: unsaved edits reach the disk within about 15 seconds, never mid-performance
     if (++autosaveTicks >= 450)
@@ -448,6 +450,17 @@ void AudioHost::showEditor (int trackId, int slot)
 }
 
 // ---------------------------------------------------------------- song files
+
+Track& AudioHost::newTrack (Track::Type type, bool drums)
+{
+    auto& t = song.addTrack (type);
+    if (type == Track::Talkback) t.power = false;       // starts muted: an open mic into monitors feeds back
+    t.audition = type == Track::Instrument;             // an instrument you cannot hear while setting up is no use
+    if (type == Track::Instrument)
+        for (auto& d : known.getTypes()) if (d.name == "DLSMusicDevice") t.instrument.desc = d;     // sound right away
+    if (drums) { t.drums = true; t.name = "Drums"; }
+    return t;
+}
 
 void AudioHost::ensureClickTrack()
 {

@@ -51,6 +51,8 @@ struct AudioHost : juce::AudioIODeviceCallback, juce::ChangeListener, juce::Time
     void showEditor (int trackId, int slot);
 
     void ensureClickTrack();
+    Track& newTrack (Track::Type, bool drums = false);     // what "+ Track" and the control inbox both use
+    void pollControl();                     // Control.cpp: commands dropped in by a Claude Code session, see docs/CONTROL.md
     void newSong();
     bool openSong (const juce::File& folder);
     void saveSong (const juce::File& folder);
@@ -101,7 +103,10 @@ private:
     std::atomic<double> rtBeatLen { 24000.0 };
     std::atomic<int> rtNum { 4 };
     std::atomic<bool> learned[256];                     // controllers owned by automation tracks, kept away from instruments
-    int autosaveTicks = 0;
+    int autosaveTicks = 0, controlTicks = 0;
+    bool stateStale = true;                             // control/state.json needs rewriting
+    juce::String lastApplied;
+    juce::StringArray lastErrors;
     bool registered = false;                            // device and midi callbacks are added once
     struct { int left = 0, total = 1; double phase = 0, inc = 0; } click;
     struct { std::atomic<int> state { 0 }; juce::int64 counter = 0, peakAt = 0; float peak = 0; } calib;
