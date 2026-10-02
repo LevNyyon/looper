@@ -20,7 +20,7 @@ Track& Song::addTrack (Track::Type type)
     Track t;
     t.id = nextId++;
     t.type = type;
-    const char* names[] = { "Audio", "Instrument", "Command", "Control", "Click", "Talkback" };
+    const char* names[] = { "Audio", "Instrument", "Command", "Control", "Click", "Talkback", "Markers" };
     int n = 1;
     for (auto& o : tracks) n += o.type == type;
     t.name = juce::String (names[type]) + " " + juce::String (n);
@@ -41,6 +41,7 @@ Region& Song::addRegion (Track& t, Region::Kind kind, double start, double lengt
         for (auto& o : t.regions) n += o.kind == Region::Record;
         r.name = "Loop " + juce::String (n);
     }
+    else if (kind == Region::Marker) r.name = "Marker " + juce::String (t.regions.size() + 1);
     else if (kind == Region::Play)      // link to the record loop just before it
     {
         const Region* best = nullptr;       // else the first one after it
@@ -72,7 +73,7 @@ std::unique_ptr<alk::Arrangement> Song::compile (double sr, bool recording) cons
     for (size_t i = 0; i < tracks.size(); ++i)
     {
         auto& t = tracks[i];
-        if (t.isAutomation()) continue;
+        if (! t.hasLoops()) continue;
         for (auto& r : t.regions)
         {
             alk::Region e;
@@ -234,9 +235,10 @@ void Song::save (const juce::File& dir)
         {
             auto ro = obj();
             set (ro, "id", r.id); set (ro, "kind", (int) r.kind); set (ro, "start", r.start); set (ro, "length", r.length);
-            if (r.kind == Region::Record)
+            set (ro, "name", r.name);
+            if (r.kind == Region::Marker) {}
+            else if (r.kind == Region::Record)
             {
-                set (ro, "name", r.name);
                 juce::Array<juce::var> takes;
                 int cur = -1;
                 for (size_t i = 0; i < r.takes.size(); ++i) { takes.add (takeToVar (r.takes[i])); if (r.takes[i] == r.current) cur = (int) i; }
@@ -329,9 +331,10 @@ bool Song::load (const juce::File& dir)
                 {
                     Region r;
                     r.id = ro["id"]; r.kind = (Region::Kind) (int) ro["kind"]; r.start = ro["start"]; r.length = ro["length"];
-                    if (r.kind == Region::Record)
+                    r.name = ro["name"].toString();
+                    if (r.kind == Region::Marker) {}
+                    else if (r.kind == Region::Record)
                     {
-                        r.name = ro["name"].toString();
                         if (auto* takes = ro["takes"].getArray()) for (auto& tv : *takes) if (auto tk = takeFromVar (tv)) r.takes.push_back (tk);
                         r.reference = takeFromVar (ro["reference"]);
                         const int cur = ro["current"];

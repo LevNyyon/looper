@@ -152,6 +152,7 @@ void ArrangeView::paint (juce::Graphics& g)
             const bool sel = ui.isSelected (r.id);
             const auto border = r.kind == Region::Record ? (t.locked ? base : col::rec)
                               : r.kind == Region::Play ? col::play
+                              : r.kind == Region::Marker ? col::text
                               : r.captured ? col::captured : col::scripted;
             g.setColour (base.withMultipliedBrightness (sel ? 0.62f : 0.42f).withMultipliedSaturation (0.8f));
             g.fillRoundedRectangle (rect, 4.f);
@@ -184,6 +185,12 @@ void ArrangeView::paint (juce::Graphics& g)
                         for (double x = len / spp; x < inner.getWidth(); x += len / spp)
                             g.fillRect (inner.getX() + (float) x, rect.getY() + 2, 1.f, rect.getHeight() - 4);
                 }
+            }
+            else if (r.kind == Region::Marker)
+            {
+                text = r.name;
+                g.setColour (col::text.withAlpha (0.35f));      // a marker's start shows on every track
+                g.fillRect (rect.getX(), (float) rulerH, 1.f, (float) (getHeight() - rulerH));
             }
             else
             {
@@ -261,7 +268,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
     if (hit == nullptr)
     {
         const bool wantRec = e.mods.isCommandDown(), wantPlay = e.mods.isAltDown();
-        if ((! wantRec && ! wantPlay) || ! (t.hasLoops() || t.isAutomation()))
+        if ((! wantRec && ! wantPlay) || t.type == Track::Click || t.type == Track::Talkback)
         {
             ui.selTrack = t.id;
             startBand();
@@ -270,7 +277,7 @@ void ArrangeView::mouseDown (const juce::MouseEvent& e)
 
         ui.host.pushUndo();
         const double start = ui.snapBeats > 0 ? std::floor (beat / ui.snapBeats) * ui.snapBeats : beat;
-        auto& r = song.addRegion (t, t.isAutomation() ? Region::Auto : wantRec ? Region::Record : Region::Play, start, minLen);
+        auto& r = song.addRegion (t, t.type == Track::Marker ? Region::Marker : t.isAutomation() ? Region::Auto : wantRec ? Region::Record : Region::Play, start, minLen);
         r.captured = wantRec;           // automation tracks: record pencil = performed live, play pencil = scripted
         orig = r;
         created = true;
@@ -476,7 +483,7 @@ void ArrangeView::mouseMove (const juce::MouseEvent& e)
 void ArrangeView::mouseDoubleClick (const juce::MouseEvent& e)
 {
     if (e.position.y < rulerH) { ui.host.setLoop (0, 0); repaint(); return; }
-    if (auto* r = ui.region(); r != nullptr && r->kind == Region::Record) rename (r->id);   // the first click selected it
+    if (auto* r = ui.region(); r != nullptr && (r->kind == Region::Record || r->kind == Region::Marker)) rename (r->id);   // the first click selected it
 }
 
 // Right-click: on empty track space, choose what to put there. On a region, what to do with it.
@@ -491,7 +498,7 @@ void ArrangeView::contextMenu (Track& t, Region* hit, double beat)
     if (hit != nullptr)
     {
         ui.select (trackId, hitId);
-        if (hit->kind == Region::Record) m.addItem (1, "Rename...");
+        if (hit->kind == Region::Record || hit->kind == Region::Marker) m.addItem (1, "Rename...");
         if (hit->kind == Region::Play) m.addSubMenu ("Plays", from, ! sources->empty());
         m.addItem (2, "Delete");
     }
@@ -506,6 +513,7 @@ void ArrangeView::contextMenu (Track& t, Region* hit, double beat)
         m.addItem (5, "Captured region here (you perform it)");
         m.addItem (6, "Scripted region here (runs by itself)");
     }
+    else if (t.type == Track::Marker) m.addItem (7, "Marker here");
     else return;
 
     m.showMenuAsync (juce::PopupMenu::Options().withMousePosition(), [this, trackId, hitId, beat, sources] (int res)
@@ -516,6 +524,7 @@ void ArrangeView::contextMenu (Track& t, Region* hit, double beat)
         else if (res == 3) place (trackId, Region::Record, beat, 0, false);
         else if (res == 4) place (trackId, Region::Play, beat, 0, false);
         else if (res == 5 || res == 6) place (trackId, Region::Auto, beat, 0, res == 5);
+        else if (res == 7) { place (trackId, Region::Marker, beat, 0, false); rename (ui.selRegion); }
         else if (res > 100 && res - 101 < (int) sources->size())
         {
             const int source = (*sources)[(size_t) res - 101];
@@ -558,19 +567,10 @@ void ArrangeView::rename (int regionId)
 {
     auto* r = ui.host.song.region (regionId);
     if (r == nullptr) return;
-    auto* w = new juce::AlertWindow ("Name this recording", "Play regions show the name of the recording they play.", juce::MessageBoxIconType::NoIcon);
-    w->addTextEditor ("name", r->name);
-    w->addButton ("OK", 1, juce::KeyPress (juce::KeyPress::returnKey));
-    w->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
-    w->enterModalState (true, juce::ModalCallbackFunction::create ([this, w, regionId] (int res)
+    ui.promptName (r->kind == Region::Marker ? "Name this marker" : "Name this recording", r->name, [this, regionId] (const juce::String& name)
     {
-        if (auto* reg = ui.host.song.region (regionId); reg != nullptr && res == 1)
-        {
-            reg->name = w->getTextEditorContents ("name");
-            ui.host.dirty = true;
-            ui.refresh();
-        }
-    }), true);
+        if (auto* reg = ui.host.song.region (regionId)) { reg->name = name; ui.host.dirty = true; ui.refresh(); }
+    });
 }
 
 // Zooms around the pointer: the beat under the fingers stays put.

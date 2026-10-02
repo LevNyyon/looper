@@ -163,6 +163,9 @@ Open source under AGPLv3, decided 2026-10-01 with the public v0.1. That is the l
 - Click and talkback ignore solo on other tracks.
 - **Drum track.** An instrument track "played as" a drum kit: every note is sent on MIDI channel 10 (the General MIDI kit in Apple's synth). 12 pads, each with a computer key: ` crash left, 1 crash right, 2 ride, 3 china, Q closed hat, W pedal hat, E open hat, A high tom, S mid tom, D low tom, Z kick, X snare. While a drum track is selected these keys win over the Z (undo) and Q (loop) shortcuts. Cmd-Z still undoes.
 - **The loop range is hidden by default.** Prefs has a checkbox, "Hide the loop range". While hidden, the ruler only moves the playhead, Q does nothing and the song always runs straight through. The engine's loop is untouched, so it comes back by unticking the box.
+- **Marker track.** A track type holding named marker regions (sections). Right-click it to drop one, double-click to name it, drag to move or resize. A marker's start shows as a line across all tracks. The . key jumps to the next marker, the , key goes back to the beginning.
+- **Track names are editable** at the top of the track panel, by double-clicking the name in the header, or from the header's right-click menu.
+- **No help text.** The inspector strip only appears while a region is selected, so the timeline gets the space. The shortcuts live in the README.
 - **No tool buttons.** Select, Rec loop and Play loop (and their 1 2 3 keys) are gone: regions are placed from the right-click menu. Cmd-drag and Alt-drag still draw a record or play region directly.
 - **Computer keyboard plays the selected instrument track** with no click on the piano first: A S D F G H J K and W E T Y U, one octave from middle C. On-screen keys and pads reach only the selected track. MIDI devices reach every instrument track, filtered by channel.
 - **Recording follows the script, not the mouse.** While recording, the computer keys and pads reach every instrument track and each track's record regions decide who sounds and records. The selection, with its piano or pads and key map, moves by itself to the instrument whose record region is coming up (half a beat ahead).
@@ -176,7 +179,7 @@ Open source under AGPLv3, decided 2026-10-01 with the public v0.1. That is the l
 
 Checked in the live app: a selection box picked up four regions on two tracks, the group moved one bar together and back.
 
-Not verified by me, because the user was working in the app and I did not drive it: the drum kit's sound and the drum keys, talkback with a live mic, the click on any output, the right-click menus (the user used them), group copy and moves across tracks, the selection following record regions, held notes ringing across a repeat by ear (the self-check only proves the note-off is stored), renaming.
+Not verified by me, because the user was working in the app and I did not drive it: the drum kit's sound and the drum keys, talkback with a live mic, the click on any output, the right-click menus (the user used them), group copy and moves across tracks, marker tracks and the , and . keys, renaming a track, the selection following record regions, held notes ringing across a repeat by ear (the self-check only proves the note-off is stored), renaming.
 
 ## 8. Status
 

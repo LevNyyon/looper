@@ -152,7 +152,7 @@ void Headers::rebuild()
         auto& t = song.tracks[(size_t) i];
         const int id = t.id, y = ArrangeView::rulerH + i * th + (th - 22) / 2;
 
-        auto& name = field ({ 12, y, t.isAutomation() ? 118 : 96, 22 }, t.name, [this, id] (const juce::String& s)
+        auto& name = field ({ 12, y, t.hasLoops() ? 96 : 118, 22 }, t.name, [this, id] (const juce::String& s)
         {
             if (auto* tr = ui.host.song.track (id)) { tr->name = s; ui.host.dirty = true; ui.refresh(); }
         });
@@ -161,9 +161,9 @@ void Headers::rebuild()
         name.setColour (juce::Label::backgroundColourId, juce::Colours::transparentBlack);
         name.setColour (juce::Label::outlineColourId, juce::Colours::transparentBlack);
 
-        if (t.isAutomation())
+        if (t.isAutomation() || t.type == Track::Marker)
         {
-            label ({ 132, y, 66, 22 }, t.type == Track::Command ? "command" : "control");
+            label ({ 132, y, 66, 22 }, t.type == Track::Command ? "command" : t.type == Track::Control ? "control" : "markers");
             continue;
         }
         if (! t.hasLoops()) label ({ 136, y, 62, 22 }, t.type == Track::Click ? "click" : "talkback");
@@ -198,7 +198,7 @@ void Headers::paint (juce::Graphics& g)
         g.fillRect (row);
         g.setColour (trackColour (i));
         g.fillRect (row.withWidth (5));
-        if (i < (int) levels.size() && ! song.tracks[(size_t) i].isAutomation())
+        if (i < (int) levels.size() && ! song.tracks[(size_t) i].isAutomation() && song.tracks[(size_t) i].type != Track::Marker)
         {
             const auto m = row.withLeft (getWidth() - 8).reduced (1, 4).toFloat();
             g.setColour (col::bg);
@@ -213,10 +213,21 @@ void Headers::paint (juce::Graphics& g)
 void Headers::mouseDown (const juce::MouseEvent& e)
 {
     ui.grabKeyboardFocus();
-    if (e.mods.isPopupMenu()) { ui.addTrackMenu (nullptr); return; }
     const int i = (e.getEventRelativeTo (this).y - ArrangeView::rulerH) / ui.arrange.trackH();
     auto& tracks = ui.host.song.tracks;
-    if (e.getEventRelativeTo (this).y >= ArrangeView::rulerH && i >= 0 && i < (int) tracks.size()) ui.select (tracks[(size_t) i].id, 0);
+    const bool onTrack = e.getEventRelativeTo (this).y >= ArrangeView::rulerH && i >= 0 && i < (int) tracks.size();
+    if (onTrack) ui.select (tracks[(size_t) i].id, 0);
+    if (! e.mods.isPopupMenu()) return;
+    if (! onTrack) { ui.addTrackMenu (nullptr); return; }
+
+    juce::PopupMenu m;      // right-click a track's name
+    m.addItem (1, "Rename track...");
+    m.addItem (2, "Add a track...");
+    m.showMenuAsync (juce::PopupMenu::Options().withMousePosition(), [this, id = tracks[(size_t) i].id] (int res)
+    {
+        if (res == 1) ui.renameTrack (id);
+        else if (res == 2) ui.addTrackMenu (nullptr);
+    });
 }
 
 // ---------------------------------------------------------------- track panel
@@ -232,15 +243,27 @@ void TrackPanel::rebuild()
 
     if (t == nullptr) { label (row(), "No track selected"); return; }
     const int id = t->id;
-    const char* types[] = { "audio", "instrument", "command", "control", "click", "talkback" };
-    label (row (20), t->name + "  (" + types[t->type] + ")", col::text);
+    const char* types[] = { "audio", "instrument", "command", "control", "click", "talkback", "markers" };
+    {
+        auto r = row (22);      // the name is editable right here
+        label (r.removeFromRight (78), types[t->type]).setJustificationType (juce::Justification::centredRight);
+        field (r, t->name, [this, id] (const juce::String& s)
+        {
+            if (auto* tr = ui.host.song.track (id)) { tr->name = s; ui.host.dirty = true; ui.refresh(); }
+        });
+    }
     if (host.deviceError.isNotEmpty())
     {
         auto& warn = label (row (76), host.deviceError, col::rec);
         warn.setJustificationType (juce::Justification::topLeft);
     }
 
-    if (t->isAutomation())
+    if (t->type == Track::Marker)
+    {
+        auto& hint = label (row (64), "Right-click the track to drop a marker. Double-click a marker to name it. The . key jumps to the next one.");
+        hint.setJustificationType (juce::Justification::topLeft);
+    }
+    else if (t->isAutomation())
     {
         toggle (row (26), ui.learnTrack == id ? "Move a controller now..." : "Learn controller", ui.learnTrack == id, col::captured,
                 [this, id] (bool on) { ui.learnTrack = on ? id : 0; ui.refresh(); });
@@ -552,15 +575,7 @@ void Inspector::rebuild()
     Track* t = nullptr;
     auto* r = host.song.region (ui.selRegion, &t);
     const int W = getWidth();
-    if (r == nullptr)
-    {
-        label ({ 12, 10, W - 24, 20 }, "Right-click a track to place a record or play region. Drag on empty space to select several, shift-click to add one. Drag a selection to move it (also to another track), alt-drag to copy, edges resize, double-click names a recording.");
-        label ({ 12, 34, W - 24, 20 }, host.loopRange ? "Click the ruler to move the playhead. Drag in it to loop a section, double-click to clear the loop, Q loops the selected region."
-                                                         : "Click the ruler to move the playhead.");
-        label ({ 12, 58, W - 24, 20 }, "Space play, Return record, R rewind, L lock track, P panic, Z undo, Shift-Z redo, Backspace delete.");
-        label ({ 12, 82, W - 24, 20 }, "With an instrument track selected, the computer keyboard plays it: A S D F G H J K with W E T Y U for the black keys. Drum tracks use the letters shown on the pads.");
-        return;
-    }
+    if (r == nullptr) return;       // nothing selected: the inspector is hidden and the timeline gets the space
     const int id = r->id;
     auto edit = [this, id] (std::function<void (Region&)> fn)
     {
@@ -571,7 +586,16 @@ void Inspector::rebuild()
     };
     const juce::String where = "bar " + barBeat (host.song, r->start) + ", " + juce::String (r->length, 3).trimCharactersAtEnd ("0").trimCharactersAtEnd (".") + " beats";
 
-    if (r->kind == Region::Record)
+    if (r->kind == Region::Marker)
+    {
+        label ({ 12, 10, 60, 22 }, "Marker", col::text);
+        field ({ 76, 10, 220, 22 }, r->name, [this, id] (const juce::String& s)
+        {
+            if (auto* reg = ui.host.song.region (id)) { reg->name = s; ui.host.dirty = true; ui.arrange.repaint(); }
+        });
+        label ({ 308, 10, 300, 22 }, where);
+    }
+    else if (r->kind == Region::Record)
     {
         label ({ 12, 10, 84, 22 }, "Record loop", col::rec);
         field ({ 100, 10, 170, 22 }, r->name, [this, id] (const juce::String& s)

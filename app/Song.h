@@ -21,12 +21,12 @@ struct Target
 
 struct Region
 {
-    enum Kind { Record, Play, Auto };
+    enum Kind { Record, Play, Auto, Marker };
     int id = 0;
     Kind kind = Record;
     double start = 0, length = 4;
 
-    // Record
+    // Record and Marker
     juce::String name;
     std::vector<TakePtr> takes;             // newest last, at most 8
     TakePtr current, reference, pending;    // pending: being recorded in this pass
@@ -58,7 +58,8 @@ struct Track
 {
     // Click: the metronome as a track, so it can go to any output. Talkback: an input passed straight
     // to an output, never looped. (New types go at the end, the number is saved in song files.)
-    enum Type { Audio, Instrument, Command, Control, Click, Talkback };
+    // Marker: named sections on the timeline, to jump between.
+    enum Type { Audio, Instrument, Command, Control, Click, Talkback, Marker };
     int id = 0;
     Type type = Audio;
     juce::String name;

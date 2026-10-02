@@ -163,6 +163,8 @@ struct MainComponent : juce::Component, juce::Timer, juce::AsyncUpdater, juce::M
     void select (int trackId, int regionId);
     void refresh() { triggerAsyncUpdate(); }        // always async: widgets may be mid-callback
     void deleteSelected();
+    void promptName (const juce::String& title, const juce::String& current, std::function<void (const juce::String&)>);
+    void renameTrack (int trackId);
     void drum (int note, bool down);                // drum pads and their computer keys
     bool keyStateChanged (bool isKeyDown) override;
     void addTrackMenu (juce::Component* target);    // null: at the mouse, for right-clicks

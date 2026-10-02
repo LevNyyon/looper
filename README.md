@@ -55,7 +55,8 @@ xattr -dr com.apple.quarantine /Applications/Looper.app
 |---|---|
 | Space | Play or stop |
 | Return | Record or stop |
-| R | Rewind |
+| R or , | Back to the beginning |
+| . | Jump to the next marker |
 | Q | Loop the selected region (when the loop range is switched on in Prefs) |
 | L | Lock the track (rehearse without overwriting) |
 | P | Panic |
@@ -63,6 +64,10 @@ xattr -dr com.apple.quarantine /Applications/Looper.app
 | Backspace | Delete the selection |
 
 Drag on empty space to select several regions, drag a selection to move it, Alt-drag to copy it. Double-click a recording to name it.
+
+**Markers:** add a marker track from "+ Track", right-click it to drop a named marker, and press . to jump from one to the next.
+
+**Track names:** edit the name at the top of the right panel, or right-click the track's name.
 
 **Instrument tracks:** A S D F G H J K play one octave from middle C, with W E T Y U for the black keys.
 

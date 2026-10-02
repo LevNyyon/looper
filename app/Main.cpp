@@ -16,6 +16,7 @@ MainComponent::MainComponent (AudioHost& h) : host (h)
     keyboard.setWantsKeyboardFocus (false);
     keyboard.setKeyWidth (22.f);
     keyState.addListener (this);
+    inspector.setVisible (false);
     host.onChange = [this] { refresh(); };
     if (! host.song.tracks.empty()) selTrack = host.song.tracks.front().id;
     setSize (1400, 820);
@@ -28,7 +29,7 @@ void MainComponent::resized()
 {
     auto r = getLocalBounds();
     transport.setBounds (r.removeFromTop (40));
-    inspector.setBounds (r.removeFromBottom (150));
+    if (inspector.isVisible()) inspector.setBounds (r.removeFromBottom (150));
     if (keyboard.isVisible() || pads->isVisible())
     {
         const auto strip = r.removeFromBottom (58);
@@ -51,10 +52,12 @@ void MainComponent::handleAsyncUpdate()
     const bool instrument = sel != nullptr && sel->type == Track::Instrument;
     const bool keys = instrument && ! sel->drums, drums = instrument && sel->drums;
     host.keyTrack = instrument ? host.song.indexOf (selTrack) : -1;     // the keys and pads play the selected track only
-    if (keys != keyboard.isVisible() || drums != pads->isVisible())
+    const bool inspect = region() != nullptr;        // the inspector only takes space while a region is selected
+    if (keys != keyboard.isVisible() || drums != pads->isVisible() || inspect != inspector.isVisible())
     {
         keyboard.setVisible (keys);
         pads->setVisible (drums);
+        inspector.setVisible (inspect);
         resized();
     }
     transport.rebuild();
@@ -140,6 +143,28 @@ bool MainComponent::keyStateChanged (bool)
     return false;
 }
 
+void MainComponent::promptName (const juce::String& title, const juce::String& current, std::function<void (const juce::String&)> done)
+{
+    auto* w = new juce::AlertWindow (title, {}, juce::MessageBoxIconType::NoIcon);
+    w->addTextEditor ("name", current);
+    w->addButton ("OK", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    w->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    w->enterModalState (true, juce::ModalCallbackFunction::create ([w, done] (int res)
+    {
+        if (res == 1) done (w->getTextEditorContents ("name"));
+    }), true);
+}
+
+void MainComponent::renameTrack (int trackId)
+{
+    auto* t = host.song.track (trackId);
+    if (t == nullptr) return;
+    promptName ("Name this track", t->name, [this, trackId] (const juce::String& name)
+    {
+        if (auto* tr = host.song.track (trackId)) { tr->name = name; host.dirty = true; refresh(); }
+    });
+}
+
 void MainComponent::deleteSelected()
 {
     if (selection.empty()) return;
@@ -193,6 +218,16 @@ bool MainComponent::keyPressed (const juce::KeyPress& k)
     {
         case 'z': if (mods.isShiftDown()) host.redo(); else host.undo(); return true;
         case 'r': host.jump (host.loopB > host.loopA ? host.loopA : 0.0); return true;
+        case ',': host.jump (0.0); return true;
+        case '.':       // on to the next marker
+        {
+            double next = -1;
+            for (auto& t : host.song.tracks)
+                for (auto& r : t.regions)
+                    if (r.kind == Region::Marker && r.start > host.posBeats() + 0.01 && (next < 0 || r.start < next)) next = r.start;
+            if (next >= 0) host.jump (next);
+            return true;
+        }
         case 'p': host.panic(); return true;
         case 'q':       // loop the selected region, or clear the loop
             if (! host.loopRange) return true;
@@ -216,11 +251,12 @@ void MainComponent::addTrackMenu (juce::Component* target)
     m.addItem (4, "Control track (faders, knobs, curves)");
     m.addItem (5, "Talkback track (a mic straight to an output)");
     m.addItem (6, "Drum track (pads on the computer keyboard)");
+    m.addItem (7, "Marker track (named sections, the . key jumps to the next)");
     const auto where = target != nullptr ? juce::PopupMenu::Options().withTargetComponent (target) : juce::PopupMenu::Options().withMousePosition();
     m.showMenuAsync (where, [this] (int res)
     {
         if (res == 0 || (int) host.song.tracks.size() >= alk::Engine::kMaxTracks) return;
-        const Track::Type kinds[] = { Track::Audio, Track::Instrument, Track::Command, Track::Control, Track::Talkback, Track::Instrument };
+        const Track::Type kinds[] = { Track::Audio, Track::Instrument, Track::Command, Track::Control, Track::Talkback, Track::Instrument, Track::Marker };
         auto& t = host.song.addTrack (kinds[res - 1]);
         if (res == 6) { t.drums = true; t.name = "Drums"; }
         if (t.type == Track::Talkback) t.power = false;         // starts muted: an open mic into monitors feeds back
@@ -273,7 +309,7 @@ void MainComponent::targetMenu (juce::Component& target, int regionId)
     }
     for (auto& t : host.song.tracks)
     {
-        if (t.isAutomation()) continue;
+        if (t.isAutomation() || t.type == Track::Marker) continue;
         juce::PopupMenu tm;
         if (command) item (tm, "Power", { Target::TrackPower, t.id });
         item (tm, "Volume", { Target::TrackVolume, t.id });

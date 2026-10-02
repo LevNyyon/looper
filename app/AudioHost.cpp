@@ -597,7 +597,7 @@ void AudioHost::audioDeviceIOCallbackWithContext (const float* const* in, int nu
         for (size_t ti = 0; ti < rt.size() && ti < (size_t) alk::Engine::kMaxTracks; ++ti)
         {
             auto& t = *rt[ti];
-            if (t.type == Track::Command || t.type == Track::Control) continue;
+            if (t.type != Track::Audio && t.type != Track::Instrument && t.type != Track::Click && t.type != Track::Talkback) continue;
             float* L = t.buf.getWritePointer (0);
             float* R = t.buf.getWritePointer (1);
             t.midi.clear();
